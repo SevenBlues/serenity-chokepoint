@@ -5,6 +5,11 @@ Verb-based subcommands (like git / claude):
 
     serenity pool                 # the product: the high-conviction stock pool
     serenity pool --live          # tighten the pool with live market data
+    serenity scan                 # live full-market radar over a broad universe
+    serenity scan --tickers NVDA,AXTI,SIVE   # scan your own list
+    serenity growth AXTI          # growth / ramp-inflection analysis of a ticker
+    serenity growth --pool        # growth table across the curated pool
+    serenity thesis AXTI          # one-page full thesis: moat × timing × risk
     serenity validate AXTI        # deep-dive one ticker: score + red-team
     serenity screen --full        # full analytical screen (table + supply map)
     serenity supply-chain         # the 7-layer map + structural chokepoints
@@ -35,6 +40,28 @@ def _enrich(live: bool):
 def cmd_pool(args):
     from serenity_chokepoint.pool import brief
     print(brief(nodes=_enrich(args.live)))
+
+
+def cmd_scan(args):
+    from serenity_chokepoint.scanner import text_report
+    tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
+    print(text_report(tickers=tickers, period=args.period, top=args.top))
+
+
+def cmd_growth(args):
+    from serenity_chokepoint.growth import text_report, pool_growth_table
+    if args.pool:
+        print(pool_growth_table())
+    elif args.ticker:
+        print(text_report(args.ticker))
+    else:
+        print("usage: serenity growth <TICKER>   |   serenity growth --pool")
+        return 1
+
+
+def cmd_thesis(args):
+    from serenity_chokepoint.thesis import thesis_report
+    print(thesis_report(args.ticker))
 
 
 def cmd_validate(args):
@@ -130,6 +157,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("pool", help="print the high-conviction stock pool (default product)")
     add_live(sp); sp.set_defaults(func=cmd_pool)
+
+    sp = sub.add_parser("scan", help="live full-market radar over a broad universe (changes daily)")
+    sp.add_argument("--tickers", default=None, help="comma-separated custom universe (default: broad AI supply chain)")
+    sp.add_argument("--period", default="2y"); sp.add_argument("--top", type=int, default=25)
+    sp.set_defaults(func=cmd_scan)
+
+    sp = sub.add_parser("thesis", help="one-page full thesis: moat × timing × risk")
+    sp.add_argument("ticker"); sp.set_defaults(func=cmd_thesis)
+
+    sp = sub.add_parser("growth", help="Serenity growth/ramp-inflection analysis of a ticker (or --pool)")
+    sp.add_argument("ticker", nargs="?", default=None)
+    sp.add_argument("--pool", action="store_true", help="growth table for the whole curated pool")
+    sp.set_defaults(func=cmd_growth)
 
     sp = sub.add_parser("validate", help="deep-dive one ticker (score + adversarial red-team)")
     sp.add_argument("ticker"); add_live(sp); sp.set_defaults(func=cmd_validate)
